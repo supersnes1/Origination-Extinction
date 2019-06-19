@@ -1,8 +1,8 @@
-source("~/Dropbox/ungulate_RA/RCode/OrigExtinctScript_Draft_2018_1_9.R")
+source("~/Dropbox/ungulate_RA/RCode/Origination-Extinction/OrigExtinctScript_Draft_2018_1_9.R")
 
-int_length <- 2
-intervals <- makeIntervals(1, 55.5, int_length)
-intList <- listifyMatrixByRow(intervals)
+#int_length <- 2
+#intervals <- makeIntervals(1, 55.5, int_length)
+#intList <- listifyMatrixByRow(intervals)
 
 ####################################################################################################################################
 #start KS analysis
@@ -11,60 +11,16 @@ intList <- listifyMatrixByRow(intervals)
 # load("/Users/emdoughty/Dropbox/ungulate_RA/EcologyResults/RepIntSp_SampleStandardized=TRUE##------ Mon Jan 14 14:30:05 2019 ------##.Rdata")
 
 # #load 2Ma repIntSp
-load("/Users/emdoughty/Dropbox/ungulate_RA/EcologyResults/Intervals=2Ma_Reps=1000_Subsampled=TRUE/RepIntSp_SampleStandardized=TRUE##------ Fri Mar 29 21:20:21 2019 ------##.Rdata")
+#load("/Users/emdoughty/Dropbox/ungulate_RA/EcologyResults/Intervals=2Ma_Reps=1000_Subsampled=TRUE/RepIntSp_SampleStandardized=TRUE##------ Fri Mar 29 21:20:21 2019 ------##.Rdata")
+
+OrigExt_KSAnalysis <- function(repIntSp = repIntSp, bigList = bigList, shortFam = shortFam, thisMat = thisMat)
+{
 
 repIntUng <- getUngulateOnly(repIntSp = repIntSp, bigList = bigList, shortFam = shortFam, thisMat = thisMat)
 
 #check and perform range-through
-repIntUng.rangeMat <- lapply(repIntUng, function(x) checkRangeThrough(x, ints = seq(1,57,2)))
-repIntUng.fixed <- lapply(repIntUng.rangeMat,rangeThrough_alt)
-
-repOrigUng <- list()
-repExtUng <- list()
-
-# get origination 54.5 to 1.5 intervals
-for(gg in seq(1,length(repIntUng[[1]])-1,1)) repOrigUng[[gg]] <- repIntUng[[1]][[gg]][!repIntUng[[1]][[gg]] %in% repIntUng[[1]][[gg+1]]]
-# get extinction 55.5 to 2.5 intervals
-for(gg in seq(1,length(repIntUng[[1]])-1,1)) repExtUng[[gg]] <- repIntUng[[1]][[gg+1]][!repIntUng[[1]][[gg+1]] %in% repIntUng[[1]][[gg]]]
-
-#get body masses
-repOrigBmUng <- getBm4List(repOrigUng,thisMat = thisMat)
-repExtBmUng <- getBm4List(repExtUng,thisMat = thisMat)
-repBmUng <- getBm4List(repIntUng, thisMat = thisMat)
-
-#####check ks between regimes
-breaks <- c(50,46,40,26,16)
-repIntUng 
-taxList <- getBreakTaxList(repIntSpSingle = repIntUng[[1]], breaks = breaks, startDate = 56, endDate = 3)
-names(taxList) <- c(">50","50to46","46to40","40to26","26to16","<16")
-
-regimeOrigUng <- list()
-regimeExtUng <- list()
-
-# get origination 
-for(gg in seq(1,length(taxList)-1,1)) regimeOrigUng[[gg]] <- taxList[[gg]][!taxList[[gg]] %in% taxList[[gg+1]]]
-# get extinction 
-for(gg in seq(1,length(taxList)-1,1)) regimeExtUng[[gg]] <- taxList[[gg+1]][!taxList[[1]][[gg+1]] %in% taxList[[1]][[gg]]]
-regimeBmOrigUng <- getBm4List(regimeOrigUng,thisMat = thisMat)
-regimeBmExtUng <- getBm4List(regimeExtUng,thisMat = thisMat)
-regimeBmUng <- getBm4List(taxList,thisMat = thisMat)
-
-getKS4Intervals(regimeBmOrigUng, taxList, result.out = "SigInt", out.putType = "Breaks")
-getKS4Intervals(regimeBmOrigUng, taxList, result.out = "AllInt", out.putType = "Breaks")
-
-getKS4Intervals(regimeBmExtUng, taxList, result.out = "SigInt", out.putType = "Breaks")
-getKS4Intervals(regimeBmExtUng, taxList, result.out = "AllInt", out.putType = "Breaks")
-
-####compare without orig/ext
-sigInt <- getKS4Intervals(repBmUng, repBmUng, result.out = "SigInt", out.putType = "Intervals")
-allInt <- getKS4Intervals(repBmUng, repBmUng, result.out = "AllInt", out.putType = "Intervals")
-
-####compare to the previous interval
-sigInt.Orig <- getKS4IntervalsOrig(repOrigBmUng, repBmUng, result.out = "SigInt", out.putType = "Intervals")
-allInt.Orig <- getKS4IntervalsOrig(repOrigBmUng, repBmUng, result.out = "AllInt", out.putType = "Intervals")
-
-sigInt.Ext <- getKS4IntervalsExt(repExtBmUng, repBmUng, result.out = "SigInt", out.putType = "Intervals")
-allInt.Ext <- getKS4IntervalsExt(repExtBmUng, repBmUng, result.out = "AllInt", out.putType = "Intervals")
+#repIntUng.rangeMat <- lapply(repIntUng, function(x) checkRangeThrough(x, ints = seq(1,57,2)))
+#repIntUng.fixed <- lapply(repIntUng.rangeMat,rangeThrough_alt)
 
 ###make function to get ks across all 1000 iterations of repIntSp
 #function needs to aggregate position of significant difference btwn intervals using the ks test
@@ -131,56 +87,22 @@ for(xx in seq(1, length(repIntUng),1))
 	OrigExt.Master[[xx]] <- OrigExt.int
 }
 
-quartz()
-par(mfrow = c(2,1))
-OrigAll <- lapply(OrigExt.Master, function(x) x$Origination)
-hist(unlist(OrigAll), breaks = seq(1, 57, 2), ylim = c(0,1000), xlim = c(57,1), col = "dodgerblue", main = "Origination")
-
-ExtAll <- lapply(OrigExt.Master, function(x) x$Extinction)
-hist(unlist(ExtAll), breaks =seq(1, 57, 2), ylim = c(0,1000), xlim = c(57,1), col = "firebrick4", main = "Extinction")
-
 #data missing from subsampling process in generation of repIntSp
-All.num0.Mat <- getListNum0Ints(numList = All.numeric.is0)
+#All.num0.Mat <- getListNum0Ints(numList = All.numeric.is0)
 
 #data missing from the intervals being identical
-Orig.num0.Mat <- getListNum0Ints(numList = Orig.numeric.is0)
-Ext.num0.Mat <- getListNum0Ints(numList = Ext.numeric.is0)
+#Orig.num0.Mat <- getListNum0Ints(numList = Orig.numeric.is0)
+#Ext.num0.Mat <- getListNum0Ints(numList = Ext.numeric.is0)
 
-colnames(All.num0.Mat) <- colnames(Orig.num0.Mat) <- colnames(Ext.num0.Mat) <- c("rep","Interval")
+#colnames(All.num0.Mat) <- colnames(Orig.num0.Mat) <- colnames(Ext.num0.Mat) <- c("rep","Interval")
 
-#Need to now go into results and figure out how taxon and body mass distributions are changing at those Orig/ext shifts
-#bm 
-##make histograms for orig and ext like for net change? (maybe have them be side by side if neear same break)
+quartz(width = 10, height = 10)
+par(mfrow = c(2,1), mar = c(3,4,4,2), oma = c(5,0,0,0))
+OrigAll <- lapply(OrigExt.Master, function(x) x$Origination)
+hist(unlist(OrigAll), breaks = seq(1, 57, 2), ylim = c(0,1000), xlim = c(57,1), col = "dodgerblue", main = "Origination", xlab = "Time (Ma)")
+axis(1, at = rev(seq(5,57, 5)), labels = FALSE)
 
-#taxon
-##break down into family level
-
-
-####################################################################################
-#function to find if rangethrough is working
-repIntTest <- repIntUng[[1]]
-ints <- 50:55
-
-repIntCheck <- checkRangeThrough(repIntTest = repIntUng[[1]], ints = 1:55)
-
-#use Jon's function
-repIntTest <- makeRangeThroughOneRep(repIntTest)
-
-#use my own range-through function
-reptest <- rangeThrough_alt(repIntCheck)
-
-repIntRangeCheck <- checkRangeThrough(repIntRangeThrough,1:55)
-test2 <- checkRangeThrough(reptest,1:55)
-
-repIntCheck[200,]
-repIntRangeCheck[200,]
-test2[200,]
-
-repIntUng.rangethrough <- list()
-repIntUng.rangeMat <- lapply(repIntUng, function(x) checkRangeThrough(x, ints = 1:55))
-repIntUng.fixed <- lapply(repIntUng.rangeMat,rangeThrough_alt)
-
-repIntUng.original <- repIntUng
-
-repIntUng <- repIntUng.fixed
-
+ExtAll <- lapply(OrigExt.Master, function(x) x$Extinction)
+hist(unlist(ExtAll), breaks =seq(1, 57, 2), ylim = c(0,1000), xlim = c(57,1), col = "firebrick4", main = "Extinction", xlab = "Time (Ma)")
+axis(1, at = rev(seq(5,57, 5)), labels = FALSE)
+}

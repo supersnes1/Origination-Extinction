@@ -563,8 +563,529 @@ checkRangeThrough <- function(repIntTest, ints)
 	return(checkMat)
 }
 
-plotTalkFigs_NAPC2019 <- function()
+################################################################################################################
+####Plotting functions for talks and publications
+################################################################################################################
+getOccs <- function()
 {
-	
-	
+  occs <- read.csv("http://paleobiodb.org/data1.2/occs/list.csv?base_name=Mammalia&continent=NOA&max_ma=66&min_ma=0&timerule=overlap&lngmin=-125.98&lngmax=-93.40&latmin=27&latmax=55.7&show=full&limit=all", stringsAsFactors=TRUE, strip.white=TRUE)
+  occs <- occs[!occs$order %in% c("Cetacea", "Desmostylia", "Sirenia"), ]
+  occs <- occs[!occs$family %in% c("Allodelphinidae", "Balaenidae", "Balaenopteridae", "Delphinidae", "Desmatophocidae", "Desmostylidae", "Didelphidae","Dugongidae","Enaliarctidae", "Eschrichtiidae","Iniidae", "Kentriodontidae", "Kogiidae", "Odobenidae", "Otariidae", "Paleoparadoxiidae", "Phocidae", "Physeteridae", "Platanistidae", "Pontoporiidae", "Protocetidae", "Squalodontidae", "Ziphiidae"), ]
+  occs$accepted_name <- gsub(pattern = "[[:space:]]", replacement = "_", x = occs$accepted_name)	#replace spaces with underscores
+  
+  return(occs)
 }
+
+getEcoAnalSrc <- function()
+{
+  source("~/Dropbox/code/R/common_src/strat.R")
+  source("~/Dropbox/code/R/common_src/occFns.R")
+  source("~/Dropbox/code/R/common_src/sampling.R") 
+  source("~/Dropbox/code/R/common_src/utils_marcot.R")
+  source("~/Dropbox/code/R/common_src/CzTimescale.R") 
+  
+  source('~/Dropbox/code/R/dentalMeasurements/src/src_dentalDataFns.R', chdir = TRUE)
+  source('~/Dropbox/code/R/dentalMeasurements/src/src_bodyMassEstimation.R', chdir = TRUE)
+  source('~/Dropbox/code/R/dentalMeasurements/src/src_ecologyAnalysisFns.R', chdir = TRUE)
+  return()
+}
+
+getDataLists_Eco_OrigExt <- function(object = "bigList", occs = NULL, thisMat = NULL)
+{
+  ##################################################################################################################################
+  #### reduces matrix to just the focal order(s)
+  ####################################################################################################################################
+  
+  # focal.order <- "Artiodactyla"
+  # focal.order <- "Perissodactyla"
+  focal.order <- c("Artiodactyla", "Perissodactyla")
+  bigList <- unique(occs[(occs$accepted_rank =="species" & occs$order %in% focal.order), c("order","family", "genus", "accepted_name")])
+  bigList <- bigList[order(bigList$order, bigList$family, bigList$genus, bigList$accepted_name),]
+  # bigList[order(bigList$family, bigList$accepted_name),]
+  shortFam <- sort(unique(bigList$family[bigList$order %in% focal.order]))	
+  if(object == "shortFam") return(shortFam)
+  
+  bigList$accepted_name <- gsub(pattern = "[[:space:]]", replacement = "_", x = bigList$accepted_name)
+  if(object == "bigList") return(bigList)
+  
+  # matrix(thisMat$species[!thisMat$species %in% bigList$accepted_name[bigList$order %in% focal.order]], ncol=1)
+  thisMat <- thisMat[thisMat$species %in% bigList$accepted_name[bigList$order %in% focal.order], ]
+  if(object == "thisMat") return(thisMat)
+}
+
+plot3panel <- function(repIntSp = NULL, bigList = NULL, shortFam = NULL, intervals = NULL, optList_tax_median = NULL, optList_bm_median = NULL)
+{
+  #3-panel diagram
+  ######
+  # make three-panel figure
+  #####
+  quartz(width=6.89)
+  par(mfrow=c(4,1), mar=c(0,4,0.5,0.5), mgp=c(2, 1,0))
+  
+  ### isotope panel
+  if(Sys.info()["sysname"] == "Darwin"){
+    source("~/Dropbox/ungulate_RA/RCode/isotopes.R")
+  } else if(Sys.info()["sysname"] == "Windows"){
+    source("C:/Users/Blaire/Dropbox/ungulate_RA/RCode/isotopes.R")
+  }
+  
+  #source("C:/Users/Blaire/Dropbox/ungulate_RA/RCode/isotopes.R")
+  # source("~/Dropbox/code/R/common_src/isotopes.R")
+  
+  optList_topes <- doTopesRateAnalysis(intervals)
+  plotTopesRateAnalysis(optList_topes, intervals, x.axis=FALSE) #
+  box(lwd=1)
+  getAlroyStatistics(intervals)
+  
+  ### taxonomy panel
+  par(mar=c(0,4, 2.5,0.5))
+  
+  # taxCube <- sapply(repIntSp, function(y) sapply(y, function(x) tabulate(match(bigList$family[as.character(bigList$accepted_name) %in% rownames(thisMat)[x]], shortFam), nbins=length(shortFam)), simplify="array"), simplify="array")
+  #taxCubeG <- sapply(repIntSp, function(y) sapply(y, function(x) tabulate(match(bigList$family[as.character(bigList$genus) %in% x], shortFam), nbins=length(shortFam)), simplify="array"), simplify="array")
+  taxCube <- sapply(repIntSp, function(y) sapply(y, function(x) tabulate(match(bigList$family[as.character(bigList$accepted_name) %in% x], shortFam), nbins=length(shortFam)), simplify="array"), simplify="array")
+  dimnames(taxCube) <- list(shortFam, rownames(intervals), NULL)
+
+  # prop <- t(apply(taxCube, c(1,2), median, na.rm=TRUE))
+  prop <- t(apply(taxCube, c(1,2), mean, na.rm=TRUE))
+  colnames(prop)[colnames(prop)==""] <- "indeterminate"
+  # dimnames(prop) <- list(rownames(intervals), shortFam)
+  source("https://dl.dropbox.com/s/iy0tu983xesbig2/taxonomicEv.R")
+  plotStackedRichness(this.box=prop, intervals=intervals, do.log=FALSE, overlay.labels=TRUE, numbers.only=TRUE, legend=FALSE, xlim=c(max(intervals, na.rm=TRUE),min(intervals, na.rm=TRUE)))
+  #med.n <- median(length(unique(unlist(sapply(repIntSp[[this.rep]], function(x) rownames(thisMat)[x]))))) #what is this.rep set to during this function?  variable is used in for loop in Handley
+  # med.n <- median(sapply(repIntSp, function(x) length(unique(unlist(sapply(x, function(y) rownames(thisMat)[y]))))))
+  # optList_tax <- doHandleyTest(thisCounts=apply(taxCube, c(1,2), median, na.rm=TRUE), n=med.n, sig=0.01, do.heuristic=do.heuristic, extra.intvs=extra.intvs, do.parallel=do.parallel)	# based on means
+  abline(v=sort(c(intervals[optList_tax_median[[length(optList_tax_median)-1]]$optBreaks,2], range(intervals))), lwd=1.5, col="darkorchid4")
+  text(x= sort((c(max(intervals), intervals[optList_tax_median[[length(optList_tax_median)-1]]$optBreaks,2]) - 0.35)), y=par()$usr[3], labels=rev(seq_len(length(optList_tax_median[[length(optList_tax_median)-1]]$optBreaks) + 1)), pos=3, cex=0.5, col="darkorchid4")
+  text(x= sort((c(max(intervals), intervals[optList_tax_median[[length(optList_tax_median)-1]]$optBreaks,2]) - 0.35)), y=par()$usr[3], labels= paste(sort(c(max(intervals), intervals[optList_tax_median[[length(optList_tax_median)-1]]$optBreaks,2])), "Ma"), adj=c(0,0), cex=0.5, col="darkorchid4")
+  box(lwd=1)
+  
+  ### body mass panel
+  thisRanges <- getTaxonRangesFromOccs(occs=occs, random=FALSE)
+  rownames(thisRanges) <- gsub(pattern = "[[:space:]]", replacement = "_", x = rownames(thisRanges))
+  thisMat[,c("FO","LO")] <- thisRanges[match(rownames(thisMat), rownames(thisRanges)),]
+  
+  par(mar=c(0,4,2.5,0.5))
+  # quartz(width=12, height=6)
+  plot(thisMat$FO, thisMat$bodyMass, xlim=c(max(intervals), min(intervals)), type="n", ylab="log-Body Mass (kg)", xaxp =c(55,5,10), xlab="Time (Ma)", cex.axis=1.5, cex.lab=1.5)
+  # plot(thisMat$FO, thisMat$bodyMass, xlim=c(max(intervals), min(intervals)), type="n", ylab="log-Body Mass (kg)", xaxp =c(50,0,5), xlab="Time (Ma)", cex.axis=1, cex.lab=1, col="gray75", fg="gray75", bg="gray75", col.axis="gray75", col.lab="gray75") #alter xaxpto change x-axis values
+  # rect(-10e6, -10e6, 10e6, 10e6, col="white")
+  overlayCzTimescale(do.subepochs=TRUE)
+  
+  famColors <- rainbow(length(shortFam))
+  colorList <- famColors[match(bigList$family[as.character(bigList$accepted_name) %in% rownames(thisMat)], shortFam)]
+  colorList[is.na(colorList)] <- "gray25"
+  
+  orderColors <- array(NA, dim=nrow(thisMat))
+  # orderColors[bigList$order[match(rownames(thisMat), bigList$accepted_name)]=="Perissodactyla"] <- "dodgerblue4"
+  # orderColors[bigList$order[match(rownames(thisMat), bigList$accepted_name)] =="Artiodactyla"] <- "deeppink4"
+  
+  for (i in seq_len(nrow(thisMat))) {
+    # lines(x=c(this["FO"], x["LO"]), y=c(x["bodyMass"], x["bodyMass"]), lwd=3, pch=21, col=famColors[match(bigList[match(rownames(thisMat), bigList[,1]),2], shortFam)])
+    # lines(x=c(thisMat$FO[i], thisMat$LO[i]), y=c(thisMat$bodyMass[i], thisMat$bodyMass[i]), lwd=0.5, pch=21, col=alphaColor(colorList[i], 0.75))
+    # lines(x=c(thisRanges[match(rownames(thisMat)[i], rownames(thisRanges)),"FO"], thisRanges[match(rownames(thisMat)[i], rownames(thisRanges)),"LO"]), y=c(thisMat$bodyMass[i], thisMat$bodyMass[i]), lwd=0.5, pch=21, col=alphaColor("gray0", 0.75)) #
+    if (is.finite(thisMat$FO[i]) & is.finite(thisMat$LO[i]) & thisMat$FO[i] != thisMat$LO[i]) lines(x=thisMat[i,c("FO","LO")], y=c(thisMat$bodyMass[i], thisMat$bodyMass[i]), lwd=0.75, pch=21, col=alphaColor("gray0", 0.5)) #alphaColor(orderColors[i], 0.5)
+  }
+  points(thisMat[complete.cases(thisMat[ ,c("FO","LO")]) & thisMat$FO == thisMat$LO, c("FO","bodyMass")], pch=21, col=alphaColor("gray0", 0.5), cex=0.25) #this line is not generating the proper output for the final graph due to c("FO","bodyMass") causing a  "undefined columns selected" error
+  
+  # optList_bm <- doHandleyTest(thisCounts=apply(countCube, c(1,2), median, na.rm=TRUE), n=med.n, sig=0.01, do.heuristic=do.heuristic, extra.intvs=extra.intvs, do.parallel=do.parallel)	# based on means
+  # optList_bm <- doHandleyTest(thisCounts=apply(countCube, c(1,2), median, na.rm=TRUE), sig=0.01, do.heuristic=TRUE, do.parallel=do.parallel)	# based on median
+  abline(v=sort(c(intervals[optList_bm_median[[length(optList_bm_median)-1]]$optBreaks,2], range(intervals))), lwd=1.5, col="firebrick4")
+  text(x= sort((c(max(intervals), intervals[optList_bm_median[[length(optList_bm_median)-1]]$optBreaks,2]) - 0.35)), y=par()$usr[3], labels=rev(seq_len(length(optList_bm_median[[length(optList_bm_median)-1]]$optBreaks) + 1)), pos=3, cex=0.5, col="firebrick4")
+  text(x= sort((c(max(intervals), intervals[optList_bm_median[[length(optList_bm_median)-1]]$optBreaks,2]) - 0.35)), y=par()$usr[3], labels= paste(sort(c(max(intervals), intervals[optList_bm_median[[length(optList_bm_median)-1]]$optBreaks,2])), "Ma"), adj=c(0,0),cex=0.5, col="firebrick4")
+  
+  quants <- apply(sapply(repIntSp, function(y) sapply(y, function(x) quantile(thisMat[x,"bodyMass"], probs=c(0, 0.25, 0.5, 0.75, 1.0), na.rm=TRUE)), simplify = "array"), c(1,2), median, na.rm=TRUE)
+  polygon(c(rowMeans(intervals), rev(rowMeans(intervals))), c(quants[1,], rev(quants[5,])), col=alphaColor("darkorange4", 0.25), border="darkorange4")
+  polygon(c(rowMeans(intervals), rev(rowMeans(intervals))), c(quants[2,], rev(quants[4,])), col=alphaColor("darkorange4", 0.25), border="darkorange4")
+  lines(rowMeans(intervals), quants[3,], col=alphaColor("goldenrod1", 0.5), lwd=5)
+  lines(rowMeans(intervals), quants[3,], col=alphaColor("darkorange4", 1.0), lwd=3)
+  points(rowMeans(intervals), quants[3,], col=alphaColor("darkorange1", 0.5), cex=0.5)
+  box(lwd=1)
+}
+
+plotSinglePanelPlot <- function(panelsel = "bodyMass", includeBreaks = FALSE,
+           repIntSp = NULL,
+           bigList = NULL,
+           shortFam = NULL,
+           intervals = NULL,
+           optList_tax_median = NULL,
+           optList_bm_median = NULL)
+  {
+    quartz(width = 12, height = 6)
+    par(mfrow=c(1,1), mgp = c(3, 1, 0), mar=c(5,5, 2.5,1.5))
+    
+    if (panelsel == "isotope") {
+      ### isotope panel
+      if (Sys.info()["sysname"] == "Darwin") {
+        source("~/Dropbox/ungulate_RA/RCode/isotopes.R")
+      } else if (Sys.info()["sysname"] == "Windows") {
+        source("C:/Users/Blaire/Dropbox/ungulate_RA/RCode/isotopes.R")
+      }
+      
+      #source("C:/Users/Blaire/Dropbox/ungulate_RA/RCode/isotopes.R")
+      # source("~/Dropbox/code/R/common_src/isotopes.R")
+      
+      optList_topes <- doTopesRateAnalysis(intervals)
+      plotTopesRateAnalysis(optList_topes, intervals, x.axis = FALSE) #
+      box(lwd = 1)
+      getAlroyStatistics(intervals)
+    }
+    
+    ### taxonomy panel
+    if (panelsel == "taxon") {
+      #par(mar = c(0, 4, 2.5, 0.5))
+      
+      # taxCube <- sapply(repIntSp, function(y) sapply(y, function(x) tabulate(match(bigList$family[as.character(bigList$accepted_name) %in% rownames(thisMat)[x]], shortFam), nbins=length(shortFam)), simplify="array"), simplify="array")
+      #taxCubeG <- sapply(repIntSp, function(y) sapply(y, function(x) tabulate(match(bigList$family[as.character(bigList$genus) %in% x], shortFam), nbins=length(shortFam)), simplify="array"), simplify="array")
+      taxCube <-
+        sapply(repIntSp, function(y)
+          sapply(y, function(x)
+            tabulate(
+              match(bigList$family[as.character(bigList$accepted_name) %in% x], shortFam), nbins =
+                length(shortFam)
+            ), simplify = "array"), simplify = "array")
+      dimnames(taxCube) <- list(shortFam, rownames(intervals), NULL)
+      
+      # prop <- t(apply(taxCube, c(1,2), median, na.rm=TRUE))
+      prop <- t(apply(taxCube, c(1, 2), mean, na.rm = TRUE))
+      colnames(prop)[colnames(prop) == ""] <- "indeterminate"
+      # dimnames(prop) <- list(rownames(intervals), shortFam)
+      source("https://dl.dropbox.com/s/iy0tu983xesbig2/taxonomicEv.R")
+      plotStackedRichness(
+        this.box = prop,
+        intervals = intervals,
+        do.log = FALSE,
+        overlay.labels = TRUE,
+        numbers.only = TRUE,
+        legend = FALSE,
+        xlim = c(max(intervals, na.rm = TRUE), min(intervals, na.rm = TRUE))
+      )
+      #med.n <- median(length(unique(unlist(sapply(repIntSp[[this.rep]], function(x) rownames(thisMat)[x]))))) #what is this.rep set to during this function?  variable is used in for loop in Handley
+      # med.n <- median(sapply(repIntSp, function(x) length(unique(unlist(sapply(x, function(y) rownames(thisMat)[y]))))))
+      # optList_tax <- doHandleyTest(thisCounts=apply(taxCube, c(1,2), median, na.rm=TRUE), n=med.n, sig=0.01, do.heuristic=do.heuristic, extra.intvs=extra.intvs, do.parallel=do.parallel)	# based on means
+      if(includeBreaks == TRUE)
+      {
+        abline(v = sort(c(intervals[optList_tax_median[[length(optList_tax_median) -
+                                                          1]]$optBreaks, 2], range(intervals))),
+               lwd = 1.5,
+               col = "darkorchid4")
+        text(
+          x = sort((c(
+            max(intervals), intervals[optList_tax_median[[length(optList_tax_median) -
+                                                            1]]$optBreaks, 2]
+          ) - 0.35)),
+          y = par()$usr[3],
+          labels = rev(seq_len(
+            length(optList_tax_median[[length(optList_tax_median) - 1]]$optBreaks) + 1
+          )),
+          pos = 3,
+          cex = 0.5,
+          col = "darkorchid4"
+        )
+        text(
+          x = sort((c(
+            max(intervals), intervals[optList_tax_median[[length(optList_tax_median) -
+                                                            1]]$optBreaks, 2]
+          ) - 0.35)),
+          y = par()$usr[3],
+          labels = paste(sort(c(
+            max(intervals), intervals[optList_tax_median[[length(optList_tax_median) -
+                                                            1]]$optBreaks, 2]
+          )), "Ma"),
+          adj = c(0, 0),
+          cex = 0.5,
+          col = "darkorchid4"
+        )
+      }
+      box(lwd = 1)
+    }
+    
+    ### body mass panel
+    if (panelsel == "bodyMass") {
+      thisRanges <- getTaxonRangesFromOccs(occs = occs, random = FALSE)
+      rownames(thisRanges) <-
+        gsub(
+          pattern = "[[:space:]]",
+          replacement = "_",
+          x = rownames(thisRanges)
+        )
+      thisMat[, c("FO", "LO")] <-
+        thisRanges[match(rownames(thisMat), rownames(thisRanges)), ]
+      
+      #par(mar = c(4, 4, 2, 0.5), oma = c(0,0,2.5,2.5))
+      # quartz(width=12, height=6)
+      plot(
+        thisMat$FO,
+        thisMat$bodyMass,
+        xlim = c(max(intervals), min(intervals)),
+        type = "n",
+        ylab = "log-Body Mass (kg)",
+        xaxp = c(55, 5, 10),
+        xlab = "Time (Ma)",
+        cex.axis = 1.5,
+        cex.lab = 1.5,
+        col.axis = "gray75",
+        col.lab = "gray75",
+        bg = "gray75",
+        fg = "gray75"
+      )
+      # plot(thisMat$FO, thisMat$bodyMass, xlim=c(max(intervals), min(intervals)), type="n", ylab="log-Body Mass (kg)", xaxp =c(50,0,5), xlab="Time (Ma)", cex.axis=1, cex.lab=1, col="gray75", fg="gray75", bg="gray75", col.axis="gray75", col.lab="gray75") #alter xaxpto change x-axis values
+      # rect(-10e6, -10e6, 10e6, 10e6, col="white")
+      overlayCzTimescale(do.subepochs = TRUE)
+      
+      famColors <- rainbow(length(shortFam))
+      colorList <-
+        famColors[match(bigList$family[as.character(bigList$accepted_name) %in% rownames(thisMat)], shortFam)]
+      colorList[is.na(colorList)] <- "gray25"
+      
+      orderColors <- array(NA, dim = nrow(thisMat))
+      # orderColors[bigList$order[match(rownames(thisMat), bigList$accepted_name)]=="Perissodactyla"] <- "dodgerblue4"
+      # orderColors[bigList$order[match(rownames(thisMat), bigList$accepted_name)] =="Artiodactyla"] <- "deeppink4"
+      
+      for (i in seq_len(nrow(thisMat))) {
+        # lines(x=c(this["FO"], x["LO"]), y=c(x["bodyMass"], x["bodyMass"]), lwd=3, pch=21, col=famColors[match(bigList[match(rownames(thisMat), bigList[,1]),2], shortFam)])
+        # lines(x=c(thisMat$FO[i], thisMat$LO[i]), y=c(thisMat$bodyMass[i], thisMat$bodyMass[i]), lwd=0.5, pch=21, col=alphaColor(colorList[i], 0.75))
+        # lines(x=c(thisRanges[match(rownames(thisMat)[i], rownames(thisRanges)),"FO"], thisRanges[match(rownames(thisMat)[i], rownames(thisRanges)),"LO"]), y=c(thisMat$bodyMass[i], thisMat$bodyMass[i]), lwd=0.5, pch=21, col=alphaColor("gray0", 0.75)) #
+        if (is.finite(thisMat$FO[i]) &
+            is.finite(thisMat$LO[i]) &
+            thisMat$FO[i] != thisMat$LO[i])
+          lines(
+            x = thisMat[i, c("FO", "LO")],
+            y = c(thisMat$bodyMass[i], thisMat$bodyMass[i]),
+            lwd = 0.75,
+            pch = 21,
+            col = alphaColor("gray0", 0.5)
+          ) #alphaColor(orderColors[i], 0.5)
+      }
+      points(
+        thisMat[complete.cases(thisMat[, c("FO", "LO")]) &
+                  thisMat$FO == thisMat$LO, c("FO", "bodyMass")],
+        pch = 21,
+        col = alphaColor("gray0", 0.5),
+        cex = 0.25
+      ) #this line is not generating the proper output for the final graph due to c("FO","bodyMass") causing a  "undefined columns selected" error
+      
+      # optList_bm <- doHandleyTest(thisCounts=apply(countCube, c(1,2), median, na.rm=TRUE), n=med.n, sig=0.01, do.heuristic=do.heuristic, extra.intvs=extra.intvs, do.parallel=do.parallel)	# based on means
+      # optList_bm <- doHandleyTest(thisCounts=apply(countCube, c(1,2), median, na.rm=TRUE), sig=0.01, do.heuristic=TRUE, do.parallel=do.parallel)	# based on median
+      if(includeBreaks == TRUE)
+      {
+        abline(v = sort(c(intervals[optList_bm_median[[length(optList_bm_median) -
+                                                         1]]$optBreaks, 2], range(intervals))),
+               lwd = 1.5,
+               col = "firebrick4")
+        text(
+          x = sort((c(
+            max(intervals), intervals[optList_bm_median[[length(optList_bm_median) -
+                                                           1]]$optBreaks, 2]
+          ) - 0.35)),
+          y = par()$usr[3],
+          labels = rev(seq_len(
+            length(optList_bm_median[[length(optList_bm_median) - 1]]$optBreaks) + 1
+          )),
+          pos = 3,
+          cex = 0.5,
+          col = "firebrick4"
+        )
+        text(
+          x = sort((c(
+            max(intervals), intervals[optList_bm_median[[length(optList_bm_median) -
+                                                           1]]$optBreaks, 2]
+          ) - 0.35)),
+          y = par()$usr[3],
+          labels = paste(sort(c(
+            max(intervals), intervals[optList_bm_median[[length(optList_bm_median) -
+                                                           1]]$optBreaks, 2]
+          )), "Ma"),
+          adj = c(0, 0),
+          cex = 0.5,
+          col = "firebrick4"
+        )
+      }
+      quants <-
+        apply(sapply(repIntSp, function(y)
+          sapply(y, function(x)
+            quantile(
+              thisMat[x, "bodyMass"],
+              probs = c(0, 0.25, 0.5, 0.75, 1.0),
+              na.rm = TRUE
+            )), simplify = "array"),
+          c(1, 2),
+          median,
+          na.rm = TRUE)
+      polygon(
+        c(rowMeans(intervals), rev(rowMeans(intervals))),
+        c(quants[1, ], rev(quants[5, ])),
+        col = alphaColor("darkorange4", 0.25),
+        border = "darkorange4"
+      )
+      polygon(
+        c(rowMeans(intervals), rev(rowMeans(intervals))),
+        c(quants[2, ], rev(quants[4, ])),
+        col = alphaColor("darkorange4", 0.25),
+        border = "darkorange4"
+      )
+      lines(
+        rowMeans(intervals),
+        quants[3, ],
+        col = alphaColor("goldenrod1", 0.5),
+        lwd = 5
+      )
+      lines(
+        rowMeans(intervals),
+        quants[3, ],
+        col = alphaColor("darkorange4", 1.0),
+        lwd = 3
+      )
+      points(
+        rowMeans(intervals),
+        quants[3, ],
+        col = alphaColor("darkorange1", 0.5),
+        cex = 0.5
+      )
+      box(lwd = 1)
+    }
+    return()
+  }
+
+RegimeNetdistribution_Midpoint <- function(thisMat, occs, intervals)
+{
+  #####Using midpoint of taxon
+  #get midpoint of each taxon 
+  taxonranges <- getTaxonRangesFromOccs(occs = occs, random = FALSE)
+  rownames(taxonranges) <- gsub(pattern = "[[:space:]]", replacement = "_", x = rownames(taxonranges))
+  taxonranges <- cbind(taxonranges, (taxonranges[,"FO"]+taxonranges[,"LO"])/2); colnames(taxonranges)[3] <- "MP"
+  occDatesMP <- taxonranges[,"MP"]
+  intSpMP <- apply(intervals, 1, function(thisIntv) taxonranges[taxonranges[,"MP"] > thisIntv[1] & taxonranges[,"MP"] <= thisIntv[2],])
+  
+  bmBreaks <- c(-Inf, 0.69897, 1.39794, 2.176091, 2.69897, 3.0, Inf) #Janis 2000  max(thisMat$bodyMass, na.rm=TRUE)
+  countCubeMP <- sapply(intSpMP, function(x) hist(thisMat$bodyMass[match(rownames(x), rownames(thisMat))], breaks=bmBreaks, plot=FALSE)$counts, simplify = "array")
+  #drop the intervals that include the Quaternary (<3 Ma)
+  countCubeMP <- countCubeMP[,!as.double(str_remove(colnames(countCubeMP), " Ma")) < 3]
+  optList_bm_medianMP <- doHandleyTest(countCubeMP, n=nrow(thisMat))
+  regimeHist_countBox(countBox = countCubeMP, breaks = c(51,47,37,21), optList=optList_bm_medianMP, 
+                      thisMat = thisMat, netFreq = TRUE, regimeFreq=FALSE,
+                      netPlotType = "pos/neg", plot.together = FALSE, plot.axes = TRUE,
+                      grayscale = FALSE)
+  return()
+}
+
+evoSetup <- function()
+{
+  source("~/Dropbox/Code/R/common_src/strat.R")
+  source("~/Dropbox/Code/R/common_src/occFns.R")
+  source("~/Dropbox/Code/R/common_src/phy_dateTree.R")
+
+  source('~/Dropbox/ungulate_RA/RCode/2017_2_22_CopesRule_Source_Func_Clavel_ver1.R') #call cource file for analysis functions
+  source('~/Dropbox/ungulate_RA/RCode/EvAnalysesDataSrc.R') #call cource file for data functions
+  
+  source("~/Dropbox/Code/R/DentalMeasurements/src/src_EvAnalysisSetup.R")
+  source('~/Dropbox/Code/R/DentalMeasurements/src/src_EvAnalysesTree.R') #call cource file for tree functions
+  source('~/Dropbox/Code/R/DentalMeasurements/src/src_EvAnalysesPlot.R') #call cource file for tree functions
+  tree.backbone <- read.nexus("~/Dropbox/ungulate_RA/NAUngulata_Trees/BackBoneTrees/2017_3_24_UngulataBackboneTree")
+  clade.definitions <- read.csv("~/Dropbox/ungulate_RA/2017_3_20_Clade_species_test.csv", stringsAsFactors = FALSE)
+  wildcard.positions <- read.csv("~/Dropbox/ungulate_RA/2017_4_17_MCRA_Codes.csv", stringsAsFactors = FALSE)
+  regressCat <- read.csv("~/Dropbox/ungulate_RA/BodyMassRegressionAssignment/regressionLabelsJDM.csv")
+  return()
+}
+
+plotTalkFigs_NAPC2019 <- function(repIntFile, EvoAnalFolderFilePath)
+{
+	#body mass and k/s set-up
+  getEcoAnalSrc()
+  occs <- getOccs()
+  thisMat <- getMeasureMat()
+  bigList <- getDataLists_Eco_OrigExt(object = "bigList", occs = occs, thisMat = thisMat)
+  shortFam <- getDataLists_Eco_OrigExt(object = "shortFam", occs = occs, thisMat = thisMat)
+  thisMat <- getDataLists_Eco_OrigExt(object = "thisMat", occs = occs, thisMat = thisMat)
+  
+  int_length <- 2
+  intervals <- makeIntervals(1, 55, int_length)
+  intList <- listifyMatrixByRow(intervals)
+	
+  #load repIntSp, taxon hadley, and body mass hadley results
+  load("/Users/emdoughty/Dropbox/ungulate_RA/EcologyResults/Intervals=2Ma_Reps=1000_Subsampled=TRUE/RepIntSp_SampleStandardized=TRUE##------ Fri Mar 29 21:20:21 2019 ------##.Rdata")
+  load("/Users/emdoughty/Dropbox/ungulate_RA/EcologyResults/Intervals=2Ma_Reps=1000_Subsampled=TRUE/Taxon_handleyResult_SampleStandardized=TRUE##------ Fri Mar 29 22:00:47 2019 ------##.Rdata")
+  load("/Users/emdoughty/Dropbox/ungulate_RA/EcologyResults/Intervals=2Ma_Reps=1000_Subsampled=TRUE/BM_handleyResult_SampleStandardized=TRUE##------ Fri Mar 29 22:06:27 2019 ------##.Rdata")
+  
+  ############################################################################################################
+  #3panel
+  plot3panel(repIntSp=repIntSp, bigList = bigList, shortFam = shortFam, intervals = intervals, optList_tax_median = optList_tax_median, optList_bm_median = optList_bm_median)
+
+  #body mass sholder plot (no breaks added)
+  plotSinglePanelPlot(panel="bodyMass", includeBreaks = FALSE,
+                      repIntSp=repIntSp, bigList = bigList, shortFam = shortFam, intervals = intervals, optList_tax_median = optList_tax_median, optList_bm_median = optList_bm_median)
+  
+  #Regime Distributions histgram
+  RegimeNetdistribution_Midpoint(thisMat = thisMat, occs = occs, intervals = intervals)
+  
+  #Origination Extinction
+  ##K/S histograms
+  source("~/Dropbox/ungulate_RA/RCode/Origination-Extinction/OrigExtinctScript_Draft_2018_1_9.R")
+  source("~/Dropbox/ungulate_RA/RCode/Origination-Extinction/OrigExtinct_Main_2019_2_27.R")
+  OrigExt_KSAnalysis(repIntSp = repIntSp,bigList = bigList, shortFam = shortFam, thisMat = thisMat)
+
+  ############################################################################################################  
+  #evolution analysis
+  require(phytools)
+  require(mvMORPH)
+  require(stringr)
+  require(parallel)
+  
+  #filenames.2Ma <- file.info(list.files("~/Dropbox/ungulate_RA/RCode/Results/TestDate/", pattern = "*.Rdata", full.names=TRUE))
+  #filenames.2Ma <- file.info(list.files("/Users/emdoughty/Google Drive/EvAnalysisResults20181023/", pattern = "*.Rdata", full.names=TRUE))
+  filenames.2Ma <- file.info(list.files("/Users/emdoughty/Google Drive/EvAnalysisResults20181017_dep/", pattern = "*.Rdata", full.names=TRUE))
+  filenames.Trees <- file.info(list.files("~/Dropbox/ungulate_RA/RCode/NA_Ungulate_Trees/", pattern = "*.Rdata", full.names=TRUE))
+  
+  filenames.2Ma <- rownames(filenames.2Ma[with(filenames.2Ma, order(as.POSIXct(mtime))), ])
+  filenames.Trees <- rownames(filenames.Trees[with(filenames.Trees, order(as.POSIXct(mtime))), ])
+  
+  Optbreaks <-vector()
+  OptSigma <- list()
+  optBM <- list()
+  Analysis.trees <- list()
+  Int.List <- list()
+  
+  for(ii in seq(1, length(filenames.2Ma),1)){ #rerun and save data file for sigma and separate for break.dates
+    load(as.character(filenames.2Ma[[ii]]))
+    #	load(as.character(filenames.Trees[[ii]]))
+    #	Analysis.trees[[ii]] <- this.tree
+    #	Int.List[[ii]] <- intervals
+    #	load(as.character(file.list[[ii]][1,])) #to get this.tree
+    #	resultsTemporalShifts
+    
+    bmBest <- getOptModels(opt.list = resultsTemporalShifts, model = "BM")
+    optBM[[ii]] <-list(BM=bmBest[c("sigma","break.dates")], OU=NULL)
+    
+    #	Optbreaks <- append(Optbreaks, optBM[[ii]]$break.dates)
+    
+    print(ii)
+  } #vector memory runs out at ~648 
+  
+  #save sigma and breaks as separate files
+  #filenamesOptJon <- paste("/Users/emdoughty/Dropbox/ungulate_RA/RCode/Results/OptBreaks_FinalData", timestamp(),".Rdata", sep="")
+  #filenamesOptJon <- paste("/Users/emdoughty/Dropbox/ungulate_RA/RCode/Results/OptSigma_FinalData"
+  #							 , timestamp(),".Rdata", sep="")
+  
+  #save(optbreaks, file = filenamesOptJon)
+  #save(OptSigma, file = filenamesOptJon)
+  
+  evoModelRates(evoResults = optBM, runOnRates = "BestRates")
+  evoModelHists(optBM, intervals, runHistOn = "BestRates", 
+                model = "BM", plotPercent = TRUE, ylim=c(0, 0.15), relativeFreq = TRUE)
+  
+  evoModelHists(optBM, intervals, runHistOn = "BestRates", 
+                model = "BM", plotPercent = FALSE)
+  
+  #plotRatesBM(this.rez=optBM, this.tree= Analysis.trees, intervals = Int.List, num.Trees = length(optBM))
+  plotRatesBM(this.rez=optBM, intervals = intervals, num.Trees = length(optBM), 
+              PlotXmax = 56, PlotXmin = 4)
+  
+  RiseDeclineList <- lapply(optBM, getSigmaRateRiseDecline)
+  plotBreaksRiseDecline(RiseDeclineList, intervals)
+  plotBreaksRiseDecline(RiseDeclineList, intervals, plotPercent = TRUE)
+  
+}
+
+#6/18/2019
+##for species with elongate m3's (e.g. peccaries, suids, some camels)
+#look at variance of tooth row, if m3 inducing the variance drop it from the calculations
+#platygonus being predicted to be over 500 lbs currently
