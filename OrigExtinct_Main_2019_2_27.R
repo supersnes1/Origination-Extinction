@@ -99,12 +99,37 @@ for(xx in seq(1, length(repIntUng),1))
 quartz(width = 10, height = 10)
 par(mfrow = c(2,1), mar = c(4,5,4,2), oma = c(5,0,0,0))
 OrigAll <- lapply(OrigExt.Master, function(x) x$Origination)
-hist(unlist(OrigAll), breaks = seq(1, 57, 2), ylim = c(0,1000), xlim = c(57,1), col = "dodgerblue", 
-     main = "Origination", xlab = "Time (Ma)", cex.axis = 1.5, cex.lab = 1.5, cex.main = 1.5)
-axis(1, at = rev(seq(5,57, 5)), labels = FALSE)
+orig.hist <- hist(unlist(OrigAll), breaks = seq(1, 57, 2), plot=FALSE)
+plot(1, type="n", xlab="", ylab="", xlim=c(57,1), ylim=c(0, 1000), xaxt = "n", yaxt = "n")
+overlayCzTimescale(do.subepochs=TRUE)
+plot(orig.hist, cex=0.3, xaxp =c(55,5,5), 
+     xaxt = "n", ylim = c(0,1000), xlim = c(57,1), col = "dodgerblue", main = "Origination", xlab = "Time (Ma)", 
+     cex.axis = 1.5, cex.lab = 1.5, cex.main = 1.5, add = T)
+axis(1, at = rev(seq(5,57, 5)), labels = FALSE, 
+     fg="gray75", bg="gray75", col.axis="gray75")
+axis(side = 1, at= rev(seq(5,57,10)),tcl=-1, labels = TRUE,
+     fg="gray75", bg="gray75", col.axis="gray75")
+title(main="Origination", xlab="Time (Ma)", ylab="Frequency", col.main="gray75", col.lab = "gray75", cex.main=1.5, cex.lab=1.5)
+axis(2, at = rev(seq(0,1000, 100)), labels = FALSE, 
+     fg="gray75", bg="gray75", col.axis="gray75")
+axis(side = 2, at= rev(seq(0,1000,200)),tcl=-1, labels = TRUE,
+     fg="gray75", bg="gray75", col.axis="gray75", cex.axis=1.5)
 
 ExtAll <- lapply(OrigExt.Master, function(x) x$Extinction)
-hist(unlist(ExtAll), breaks =seq(1, 57, 2), ylim = c(0,1000), xlim = c(57,1), col = "firebrick4", 
-     main = "Extinction", xlab = "Time (Ma)", cex.axis = 1.5, cex.lab = 1.5, cex.main = 1.5)
-axis(1, at = rev(seq(5,57, 5)), labels = FALSE)
+ext.hist <- hist(unlist(ExtAll), breaks =seq(1, 57, 2), ylim = c(0,1000), xlim = c(57,1), col = "firebrick4", 
+     main = "Extinction", xlab = "Time (Ma)", cex.axis = 1.5, cex.lab = 1.5, cex.main = 1.5, plot=F)
+plot(1, type="n", xlab="", ylab="", xlim=c(57,1), ylim=c(0, 1000), xaxt = "n", yaxt = "n")
+overlayCzTimescale(do.subepochs=TRUE)
+plot(ext.hist, cex=0.3, xaxp =c(55,5,5), 
+     xaxt = "n", ylim = c(0,1000), xlim = c(57,1), col = "firebrick4", main = "Origination", xlab = "Time (Ma)", 
+     cex.axis = 1.5, cex.lab = 1.5, cex.main = 1.5, add = T)
+axis(1, at = rev(seq(5,57, 5)), labels = FALSE, 
+     fg="gray75", bg="gray75", col.axis="gray75")
+axis(side = 1, at= rev(seq(5,57,10)),tcl=-1, labels = TRUE,
+     fg="gray75", bg="gray75", col.axis="gray75")
+title(main="Extinction", xlab="Time (Ma)", ylab="Frequency", col.main="gray75", col.lab = "gray75", cex.main=1.5, cex.lab=1.5)
+axis(2, at = rev(seq(0,1000, 100)), labels = FALSE, 
+     fg="gray75", bg="gray75", col.axis="gray75")
+axis(side = 2, at= rev(seq(0,1000,200)),tcl=-1, labels = TRUE,
+     fg="gray75", bg="gray75", col.axis="gray75", cex.axis=1.5)
 }
