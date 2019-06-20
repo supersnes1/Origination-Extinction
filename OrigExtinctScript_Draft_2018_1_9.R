@@ -975,115 +975,21 @@ evoSetup <- function()
   source("~/Dropbox/Code/R/common_src/phy_dateTree.R")
 
   source('~/Dropbox/ungulate_RA/RCode/2017_2_22_CopesRule_Source_Func_Clavel_ver1.R') #call cource file for analysis functions
-  source('~/Dropbox/ungulate_RA/RCode/EvAnalysesDataSrc.R') #call cource file for data functions
+  #source('~/Dropbox/ungulate_RA/RCode/EvAnalysesDataSrc.R') #call cource file for data functions
   
+  source("~/Dropbox/Code/R/DentalMeasurements/src/src_dentalDataFns.R")
+  source("~/Dropbox/Code/R/DentalMeasurements/src/src_bodyMassEstimation.R")
   source("~/Dropbox/Code/R/DentalMeasurements/src/src_EvAnalysisSetup.R")
   source('~/Dropbox/Code/R/DentalMeasurements/src/src_EvAnalysesTree.R') #call cource file for tree functions
   source('~/Dropbox/Code/R/DentalMeasurements/src/src_EvAnalysesPlot.R') #call cource file for tree functions
-  tree.backbone <- read.nexus("~/Dropbox/ungulate_RA/NAUngulata_Trees/BackBoneTrees/2017_3_24_UngulataBackboneTree")
-  clade.definitions <- read.csv("~/Dropbox/ungulate_RA/2017_3_20_Clade_species_test.csv", stringsAsFactors = FALSE)
-  wildcard.positions <- read.csv("~/Dropbox/ungulate_RA/2017_4_17_MCRA_Codes.csv", stringsAsFactors = FALSE)
-  regressCat <- read.csv("~/Dropbox/ungulate_RA/BodyMassRegressionAssignment/regressionLabelsJDM.csv")
+
+  #tree.backbone <- read.nexus("~/Dropbox/ungulate_RA/NAUngulata_Trees/BackBoneTrees/2017_3_24_UngulataBackboneTree")
+  #clade.definitions <- read.csv("~/Dropbox/ungulate_RA/2017_3_20_Clade_species_test.csv", stringsAsFactors = FALSE)
+  #wildcard.positions <- read.csv("~/Dropbox/ungulate_RA/2017_4_17_MCRA_Codes.csv", stringsAsFactors = FALSE)
+  #regressCat <- read.csv("~/Dropbox/ungulate_RA/BodyMassRegressionAssignment/regressionLabelsJDM.csv")
   return()
 }
 
-plotTalkFigs_NAPC2019 <- function(repIntFile, EvoAnalFolderFilePath)
-{
-	#body mass and k/s set-up
-  getEcoAnalSrc()
-  occs <- getOccs()
-  thisMat <- getMeasureMat()
-  bigList <- getDataLists_Eco_OrigExt(object = "bigList", occs = occs, thisMat = thisMat)
-  shortFam <- getDataLists_Eco_OrigExt(object = "shortFam", occs = occs, thisMat = thisMat)
-  thisMat <- getDataLists_Eco_OrigExt(object = "thisMat", occs = occs, thisMat = thisMat)
-  
-  int_length <- 2
-  intervals <- makeIntervals(1, 55, int_length)
-  intList <- listifyMatrixByRow(intervals)
-	
-  #load repIntSp, taxon hadley, and body mass hadley results
-  load("/Users/emdoughty/Dropbox/ungulate_RA/EcologyResults/Intervals=2Ma_Reps=1000_Subsampled=TRUE/RepIntSp_SampleStandardized=TRUE##------ Fri Mar 29 21:20:21 2019 ------##.Rdata")
-  load("/Users/emdoughty/Dropbox/ungulate_RA/EcologyResults/Intervals=2Ma_Reps=1000_Subsampled=TRUE/Taxon_handleyResult_SampleStandardized=TRUE##------ Fri Mar 29 22:00:47 2019 ------##.Rdata")
-  load("/Users/emdoughty/Dropbox/ungulate_RA/EcologyResults/Intervals=2Ma_Reps=1000_Subsampled=TRUE/BM_handleyResult_SampleStandardized=TRUE##------ Fri Mar 29 22:06:27 2019 ------##.Rdata")
-  
-  ############################################################################################################
-  #3panel
-  plot3panel(repIntSp=repIntSp, bigList = bigList, shortFam = shortFam, intervals = intervals, optList_tax_median = optList_tax_median, optList_bm_median = optList_bm_median)
-
-  #body mass sholder plot (no breaks added)
-  plotSinglePanelPlot(panel="bodyMass", includeBreaks = FALSE,
-                      repIntSp=repIntSp, bigList = bigList, shortFam = shortFam, intervals = intervals, optList_tax_median = optList_tax_median, optList_bm_median = optList_bm_median)
-  
-  #Regime Distributions histgram
-  RegimeNetdistribution_Midpoint(thisMat = thisMat, occs = occs, intervals = intervals)
-  
-  #Origination Extinction
-  ##K/S histograms
-  source("~/Dropbox/ungulate_RA/RCode/Origination-Extinction/OrigExtinctScript_Draft_2018_1_9.R")
-  source("~/Dropbox/ungulate_RA/RCode/Origination-Extinction/OrigExtinct_Main_2019_2_27.R")
-  OrigExt_KSAnalysis(repIntSp = repIntSp,bigList = bigList, shortFam = shortFam, thisMat = thisMat)
-
-  ############################################################################################################  
-  #evolution analysis
-  require(phytools)
-  require(mvMORPH)
-  require(stringr)
-  require(parallel)
-  
-  #filenames.2Ma <- file.info(list.files("~/Dropbox/ungulate_RA/RCode/Results/TestDate/", pattern = "*.Rdata", full.names=TRUE))
-  #filenames.2Ma <- file.info(list.files("/Users/emdoughty/Google Drive/EvAnalysisResults20181023/", pattern = "*.Rdata", full.names=TRUE))
-  filenames.2Ma <- file.info(list.files("/Users/emdoughty/Google Drive/EvAnalysisResults20181017_dep/", pattern = "*.Rdata", full.names=TRUE))
-  filenames.Trees <- file.info(list.files("~/Dropbox/ungulate_RA/RCode/NA_Ungulate_Trees/", pattern = "*.Rdata", full.names=TRUE))
-  
-  filenames.2Ma <- rownames(filenames.2Ma[with(filenames.2Ma, order(as.POSIXct(mtime))), ])
-  filenames.Trees <- rownames(filenames.Trees[with(filenames.Trees, order(as.POSIXct(mtime))), ])
-  
-  Optbreaks <-vector()
-  OptSigma <- list()
-  optBM <- list()
-  Analysis.trees <- list()
-  Int.List <- list()
-  
-  for(ii in seq(1, length(filenames.2Ma),1)){ #rerun and save data file for sigma and separate for break.dates
-    load(as.character(filenames.2Ma[[ii]]))
-    #	load(as.character(filenames.Trees[[ii]]))
-    #	Analysis.trees[[ii]] <- this.tree
-    #	Int.List[[ii]] <- intervals
-    #	load(as.character(file.list[[ii]][1,])) #to get this.tree
-    #	resultsTemporalShifts
-    
-    bmBest <- getOptModels(opt.list = resultsTemporalShifts, model = "BM")
-    optBM[[ii]] <-list(BM=bmBest[c("sigma","break.dates")], OU=NULL)
-    
-    #	Optbreaks <- append(Optbreaks, optBM[[ii]]$break.dates)
-    
-    print(ii)
-  } #vector memory runs out at ~648 
-  
-  #save sigma and breaks as separate files
-  #filenamesOptJon <- paste("/Users/emdoughty/Dropbox/ungulate_RA/RCode/Results/OptBreaks_FinalData", timestamp(),".Rdata", sep="")
-  #filenamesOptJon <- paste("/Users/emdoughty/Dropbox/ungulate_RA/RCode/Results/OptSigma_FinalData"
-  #							 , timestamp(),".Rdata", sep="")
-  
-  #save(optbreaks, file = filenamesOptJon)
-  #save(OptSigma, file = filenamesOptJon)
-  
-  evoModelRates(evoResults = optBM, runOnRates = "BestRates")
-  evoModelHists(optBM, intervals, runHistOn = "BestRates", 
-                model = "BM", plotPercent = TRUE, ylim=c(0, 0.15), relativeFreq = TRUE)
-  
-  evoModelHists(optBM, intervals, runHistOn = "BestRates", 
-                model = "BM", plotPercent = FALSE)
-  
-  #plotRatesBM(this.rez=optBM, this.tree= Analysis.trees, intervals = Int.List, num.Trees = length(optBM))
-  plotRatesBM(this.rez=optBM, intervals = intervals, num.Trees = length(optBM), 
-              PlotXmax = 56, PlotXmin = 4)
-  
-  RiseDeclineList <- lapply(optBM, getSigmaRateRiseDecline)
-  plotBreaksRiseDecline(RiseDeclineList, intervals)
-  plotBreaksRiseDecline(RiseDeclineList, intervals, plotPercent = TRUE)
-  
-}
 
 #6/18/2019
 ##for species with elongate m3's (e.g. peccaries, suids, some camels)

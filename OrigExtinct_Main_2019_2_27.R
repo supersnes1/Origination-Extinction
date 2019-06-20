@@ -97,12 +97,14 @@ for(xx in seq(1, length(repIntUng),1))
 #colnames(All.num0.Mat) <- colnames(Orig.num0.Mat) <- colnames(Ext.num0.Mat) <- c("rep","Interval")
 
 quartz(width = 10, height = 10)
-par(mfrow = c(2,1), mar = c(3,4,4,2), oma = c(5,0,0,0))
+par(mfrow = c(2,1), mar = c(4,5,4,2), oma = c(5,0,0,0))
 OrigAll <- lapply(OrigExt.Master, function(x) x$Origination)
-hist(unlist(OrigAll), breaks = seq(1, 57, 2), ylim = c(0,1000), xlim = c(57,1), col = "dodgerblue", main = "Origination", xlab = "Time (Ma)")
+hist(unlist(OrigAll), breaks = seq(1, 57, 2), ylim = c(0,1000), xlim = c(57,1), col = "dodgerblue", 
+     main = "Origination", xlab = "Time (Ma)", cex.axis = 1.5, cex.lab = 1.5, cex.main = 1.5)
 axis(1, at = rev(seq(5,57, 5)), labels = FALSE)
 
 ExtAll <- lapply(OrigExt.Master, function(x) x$Extinction)
-hist(unlist(ExtAll), breaks =seq(1, 57, 2), ylim = c(0,1000), xlim = c(57,1), col = "firebrick4", main = "Extinction", xlab = "Time (Ma)")
+hist(unlist(ExtAll), breaks =seq(1, 57, 2), ylim = c(0,1000), xlim = c(57,1), col = "firebrick4", 
+     main = "Extinction", xlab = "Time (Ma)", cex.axis = 1.5, cex.lab = 1.5, cex.main = 1.5)
 axis(1, at = rev(seq(5,57, 5)), labels = FALSE)
 }
